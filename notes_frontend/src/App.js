@@ -3,6 +3,8 @@ import "./App.css";
 
 // SUPABASE imports
 import { createClient } from "@supabase/supabase-js";
+import Login from "./Login";
+import { AuthProvider, useAuth } from "./AuthContext";
 
 // PUBLIC_INTERFACE
 // Returns the Supabase client configured from process.env
@@ -20,7 +22,6 @@ function getSupabaseClient() {
   }
   return createClient(url, key);
 }
-
 const supabase = getSupabaseClient();
 
 // Styles/colors from project definition
@@ -187,12 +188,7 @@ function NoteEditor({
  * MAIN: App
  * ---------------------------------------------*/
 // PUBLIC_INTERFACE
-function App() {
-  /**
-   * PUBLIC_INTERFACE
-   * Main entry for the personal notes app.
-   * Renders sidebar, header, note editor, state management, and Supabase integration.
-   */
+function AuthenticatedApp({ supabase }) {
   // State
   const [notes, setNotes] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -202,6 +198,9 @@ function App() {
   const [saving, setSaving] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isMobile = useMediaQuery("(max-width:768px)");
+
+  // Auth
+  const { user, signOut } = useAuth();
 
   // Theme control
   const [theme, setTheme] = useState("light");
@@ -216,7 +215,7 @@ function App() {
   useEffect(() => {
     (async () => {
       if (supabase) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("notes")
           .select("*")
           .order("updated_at", { ascending: false });
@@ -227,7 +226,7 @@ function App() {
         setNotes(json ? JSON.parse(json) : []);
       }
     })();
-  }, []);
+  }, [user, supabase]);
 
   // Save notes to localStorage in offline mode whenever they change
   useEffect(() => {
@@ -237,7 +236,7 @@ function App() {
         JSON.stringify(notes ?? [])
       );
     }
-  }, [notes]);
+  }, [notes, supabase]);
 
   // When selectedId changes, set editorNote
   useEffect(() => {
@@ -400,6 +399,26 @@ function App() {
           >
             {theme === "light" ? "🌙" : "☀️"}
           </button>
+          {supabase && (
+            <button
+              style={{
+                marginLeft: "12px",
+                background: "#fff",
+                borderRadius: ".8em",
+                border: "1.2px solid #1976D2",
+                color: "#1976D2",
+                fontWeight: 600,
+                padding: ".37em 1em",
+                fontSize: ".98em",
+                cursor: "pointer",
+                transition: "background .14s"
+              }}
+              onClick={signOut}
+              title="Log out"
+            >
+              Log out
+            </button>
+          )}
         </span>
       </header>
       <div className="notes-app-main">
@@ -440,6 +459,36 @@ function App() {
       </footer>
     </div>
   );
+}
+
+// PUBLIC_INTERFACE
+function App() {
+  /**
+   * PUBLIC_INTERFACE
+   * Main entry for the personal notes app with Supabase authentication.
+   * If unauthenticated, displays login screen. If authenticated, shows app.
+   */
+  if (!supabase) {
+    // Fallback: No backend, let users use the notes app locally (legacy behavior).
+    return <AuthenticatedApp supabase={null} />;
+  }
+  return (
+    <AuthProvider supabase={supabase}>
+      <AppWithAuth supabase={supabase} />
+    </AuthProvider>
+  );
+}
+
+// Splits UI: If not logged in, render Login. If authed, render rest.
+function AppWithAuth({ supabase }) {
+  const { user, initializing } = useAuth();
+
+  // Wait for session check
+  if (initializing) return null;
+  if (!user) {
+    return <Login supabase={supabase} onSignIn={() => { /* will update via context */ }} />;
+  }
+  return <AuthenticatedApp supabase={supabase} />;
 }
 
 export default App;
