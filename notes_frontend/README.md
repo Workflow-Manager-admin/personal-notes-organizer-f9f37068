@@ -11,6 +11,17 @@ This project provides a minimal React template with a clean, modern UI and minim
 
 ## Getting Started
 
+### Environment Setup
+
+If you wish to use Supabase for cloud backend, create a `.env` file in the project root with:
+
+```
+REACT_APP_SUPABASE_URL=your-supabase-url
+REACT_APP_SUPABASE_KEY=your-supabase-key
+```
+
+If these are not set, the app will store notes in localStorage only (offline mode).
+
 In the project directory, you can run:
 
 ### `npm start`
